@@ -16,6 +16,8 @@ log = logging.getLogger("rwci")
 
 class Client:
   def __init__(self, gateway_url):
+    self.username = None
+    self.password = None
     self.gateway_url = gateway_url
     self.ws = None
     self.funcs = {}
