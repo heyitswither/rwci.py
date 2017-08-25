@@ -19,6 +19,7 @@ class Client:
     self.gateway_url = gateway_url
     self.ws = None
     self.funcs = {}
+    self.user_list = []
     self.messages = []
     self.loop = asyncio.get_event_loop()
 
@@ -133,14 +134,17 @@ class Client:
 
     if data.get("type") == "join":
       if self.funcs.get("on_join"):
+        self.user_list.append(data.get("username"))
         await self.funcs.get("on_join")(data.get("username"))
 
     if data.get("type") == "quit":
       if self.funcs.get("on_quit"):
+        self.user_list.remove(data.get("username"))
         await self.funcs.get("on_quit")(data.get("username"))
 
     if data.get("type") == "user_list":
       if self.funcs.get("on_user_list"):
+        self.user_list = data.get("users")
         await self.funcs.get("on_user_list")(data.get("users"))
 
     if self.funcs.get("on_raw_socket_recieve") is not None:
