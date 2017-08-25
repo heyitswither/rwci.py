@@ -1,6 +1,6 @@
 import rwci
 
-client = rwci.Client()
+client = rwci.Client(gateway_url="your gateway url")
 
 @client.event
 async def on_ready():
