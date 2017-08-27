@@ -29,7 +29,8 @@ class Client:
     self.ws = await websockets.client.connect(self.gateway_url)
 
   def event(self, coro):
-    assert asyncio.iscoroutinefunction(coro), 'Passed object must be awaitable'
+    if not asyncio.iscoroutinefunction(coro):
+      raise BadEventListener('Passed object must be awaitable')
     func_name = coro.__name__
     if not func_name.startswith("on_"):
       raise BadEventListener("Event listeners should start with `on_` and then the payload type")
