@@ -97,10 +97,6 @@ class Client:
     await self.ws.send(json.dumps(payload))
 
   async def wait_for_message(self):
-    t = await self.create_loop_wait()
-    return t
-
-  async def create_loop_wait(self):
     while True:
       t = await self.get_latest_message()
       if json.loads(t).get("type") == "message":
