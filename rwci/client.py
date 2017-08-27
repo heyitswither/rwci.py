@@ -26,19 +26,23 @@ class Client:
     self.loop = asyncio.get_event_loop()
 
   async def connect(self):
-    self.ws = await websockets.client.connect(self.gateway_url)
+    try:
+      self.ws = await websockets.client.connect(self.gateway_url)
+    except Exception as e:
+      log.warn(e.__class__.__name__ + ": " + str(e))
+      sys.exit()
 
   def event(self, coro):
     if not asyncio.iscoroutinefunction(coro):
       raise BadEventListener('Passed object must be awaitable')
     func_name = coro.__name__
     if not func_name.startswith("on_"):
-      raise BadEventListener("Event listeners should start with `on_` and then the payload type")
+      raise BadEventListener(
+          "Event listeners should start with `on_` and then the payload type")
 
     self.funcs[func_name] = coro
 
     return coro
-
 
   async def get_latest_message(self):
     msg = await self.ws.recv()
@@ -54,19 +58,18 @@ class Client:
           data = json.loads(t)
           await self.process_data(data)
         except Exception as e:
-          log.warn(e.__class__.__name__+": "+str(e))
+          log.warn(type(e).__name__ + ": " + str(e))
           log.warn("Non-JSON-serializable Object recieved from WeebSocket")
           log.warn(t)
-
 
   async def login(self, username, password):
     await self.connect()
     self.username = username
     self.password = password
     payload = {
-      "type":"auth",
-      "username":username,
-      "password":password
+        "type": "auth",
+        "username": username,
+        "password": password
     }
     await self.ws.send(json.dumps(payload))
     asyncio.ensure_future(self._start())
@@ -83,22 +86,22 @@ class Client:
 
   async def typing(self):
     payload = {
-      "type":"typing"
+      "type": "typing"
     }
     await self.ws.send(json.dumps(payload))
 
   async def send(self, content):
     payload = {
-      "type":"message",
-      "message":content
+        "type": "message",
+        "message": content
     }
     await self.ws.send(json.dumps(payload))
 
   async def send_dm(self, content, recipient):
     payload = {
-      "type":"direct_message",
-      "message":content,
-      "recipient": recipient
+        "type": "direct_message",
+        "message": content,
+        "recipient": recipient
     }
     await self.ws.send(json.dumps(payload))
 
@@ -112,7 +115,6 @@ class Client:
             self.messages.append(Message(json.loads(t)))
           return Message(json.loads(t))
 
-
   async def process_data(self, data):
     if data.get("type") == "auth":
       if data.get("success") == False:
@@ -124,7 +126,6 @@ class Client:
       if data.get("type") == "broadcast":
         if self.funcs.get("on_broadcast"):
           await self.funcs.get("on_broadcast")(data.get("message"))
-
 
     if data.get("type") == "message":
       if self.funcs.get("on_message"):
