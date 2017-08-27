@@ -81,6 +81,11 @@ class Client:
     finally:
       sys.exit()
 
+  async def typing(self):
+    payload = {
+      "type":"typing"
+    }
+    await self.ws.send(json.dumps(payload))
 
   async def send(self, content):
     payload = {
@@ -145,6 +150,10 @@ class Client:
       if self.funcs.get("on_user_list"):
         self.user_list = data.get("users")
         await self.funcs.get("on_user_list")(data.get("users"))
+
+    if data.get("type") == "typing":
+      if self.funcs.get("on_typing"):
+        await self.funcs.get("on_typing")(data.get("username"))
 
     if self.funcs.get("on_raw_socket_recieve") is not None:
       await self.funcs.get("on_raw_socket_recieve")(data)

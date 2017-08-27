@@ -29,5 +29,8 @@ async def on_quit(username):
 async def on_broadcast(broadcast):
   print("Server broadcast: "+broadcast)
 
+@client.event
+async def on_typing(username):
+  print(f"{username} is typing")
 
 client.run("username","password")
