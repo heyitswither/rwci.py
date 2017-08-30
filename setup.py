@@ -1,14 +1,10 @@
 from setuptools import setup
 import re, os
+import rwci
 
 requirements = ['websockets']
 
-version = ''
-with open('rwci/__init__.py') as f:
-    version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]', f.read(), re.MULTILINE).group(1)
-
-if not version:
-    raise RuntimeError('version is not set')
+version = rwci.__version__
 
 readme = ''
 try:
@@ -23,7 +19,7 @@ except:
 
 setup(name='rwci.py',
       author='heyitswither',
-      author_email="joseph@josephbanks.me",
+      author_email="tucker@boniface.tech",
       url='https://github.com/heyitswither/rwci.py',
       version=version,
       packages=['rwci'],
