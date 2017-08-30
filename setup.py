@@ -1,19 +1,12 @@
 from setuptools import setup
 import re, os
-import rwci
 
-version = rwci.__version__
+version = ''
+with open('rwci/__init__.py') as f:
+    version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]', f.read(), re.MULTILINE).group(1)
 
-readme = ''
-try:
-    with open('README.md') as f:
-        try:
-            readme = f.read()
-        except:
-            readme = "RWCI API wrapper"
-except:
-    readme = "RWCI API Wrapper"
-
+if not version:
+    raise RuntimeError('version is not set')
 
 setup(name='rwci.py',
       author='heyitswither',
