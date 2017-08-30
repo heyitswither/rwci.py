@@ -2,8 +2,6 @@ from setuptools import setup
 import re, os
 import rwci
 
-requirements = ['websockets']
-
 version = rwci.__version__
 
 readme = ''
@@ -25,9 +23,8 @@ setup(name='rwci.py',
       packages=['rwci'],
       license='MIT',
       description='A python wrapper for RWCI API.',
-      long_description=readme,
       include_package_data=True,
-      install_requires=requirements,
+      install_requires=['websockets'],
       classifiers=[
         'Development Status :: 4 - Beta',
         'License :: OSI Approved :: MIT License',
