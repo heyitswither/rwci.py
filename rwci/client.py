@@ -50,10 +50,7 @@ class Client:
 
   async def _start(self):
     while True:
-      try:
-        t = await self.get_latest_message()
-      except websockets.exceptions.ConnectionClosed:
-        pass
+      t = await self.get_latest_message()
       if t is None:
         pass
       else:
