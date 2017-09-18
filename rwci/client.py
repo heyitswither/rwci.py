@@ -53,7 +53,7 @@ class Client:
       try:
         t = await self.get_latest_message()
       except websockets.exceptions.ConnectionClosed:
-        raise KeyboardInterrupt()
+        pass
       if t is None:
         pass
       else:
