@@ -57,7 +57,7 @@ class Client:
         try:
           data = json.loads(t)
           await self.process_data(data)
-        except BadLoiniCredentials:
+        except BadLoginCredentials:
           pass
         except Exception as e:
           log.warn(type(e).__name__ + ": " + str(e))
