@@ -57,6 +57,8 @@ class Client:
         try:
           data = json.loads(t)
           await self.process_data(data)
+        except BadLoiniCredentials:
+          pass
         except Exception as e:
           log.warn(type(e).__name__ + ": " + str(e))
           log.warn("Non-JSON-serializable Object recieved from WeebSocket")
