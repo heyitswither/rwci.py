@@ -50,7 +50,7 @@ class Client:
 
   async def _start(self):
     while True:
-      tryL
+      try:
         t = await self.get_latest_message()
       except websockets.exceptions.ConnectionClosed:
         raise KeyboardInterrupt()
