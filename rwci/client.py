@@ -66,6 +66,14 @@ class Client:
 
   async def login(self, username, password):
     await self.connect()
+    if len(username) > 32:
+      raise BadLoginCredentials('Usernames must not exceed a length of 32 characters')
+    if len(password) > 32:
+      raise BadLoginCredentials('Passwords must not exceed a length of 32 characters')
+    if username.replace('\n', '').replace(' ', '') == '':
+      raise BadLoginCredentials('Usernames must not be empty or consist of only spaces or newlines')
+    if password.replace('\n', '').replace(' ', '') == '':
+      raise BadLoginCredentials('Passwords must not be empty or consist of only spaces or newlines')
     self.username = username
     self.password = password
     payload = {
