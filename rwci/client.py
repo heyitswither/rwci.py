@@ -1,4 +1,9 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+"""rwci/client.py
+Copyright (c) 2017 Tucker Boniface
+Licensed under MIT license."""
 
 import asyncio
 import json
@@ -9,162 +14,219 @@ import websockets
 
 from .errors import BadEventListener, BadLoginCredentials
 from .message import Message
-from .user import User
-
-log = logging.getLogger("rwci")
-
+# from .user import User
 
 class Client:
-  def __init__(self, gateway_url):
-    self.username = None
-    self.password = None
-    self.gateway_url = gateway_url
-    self.ws = None
-    self.funcs = {}
-    self.user_list = []
-    self.messages = []
-    self.loop = asyncio.get_event_loop()
+    """Client object
 
-  async def connect(self):
-    try:
-      self.ws = await websockets.client.connect(self.gateway_url)
-    except Exception as e:
-      log.warn(e.__class__.__name__ + ": " + str(e))
-      sys.exit(1)
+       Contains all necessary methods for
+       connecting to a websocket server,
+       gathering incoming packets,
+       and handling various client-related errors"""
 
-  def event(self, coro):
-    if not asyncio.iscoroutinefunction(coro):
-      raise BadEventListener('Passed object must be awaitable')
-    func_name = coro.__name__
-    if not func_name.startswith("on_"):
-      raise BadEventListener(
-          "Event listeners should start with `on_` and then the payload type")
+    def __init__(self, gateway_url):
+        self.username = None
+        self.password = None
+        self.gateway_url = gateway_url
+        self.socket = None
+        self.funcs = {}
+        self.user_list = []
+        self.messages = []
+        self.loop = asyncio.get_event_loop()
+        self.logger = logging.getLogger("rwci")
 
-    self.funcs[func_name] = coro
+    async def connect(self):
+        """Takes nothing
+           Returns None
 
-    return coro
-
-  async def get_latest_message(self):
-    msg = await self.ws.recv()
-    return msg
-
-  async def _start(self):
-    while True:
-      t = await self.get_latest_message()
-      if t is None:
-        pass
-      else:
+           Connects to the websocket server specified on instantiation"""
         try:
-          data = json.loads(t)
-          await self.process_data(data)
-        except BadLoginCredentials:
-          pass
-        except Exception as e:
-          log.warn(type(e).__name__ + ": " + str(e))
-          log.warn("Non-JSON-serializable Object recieved from WeebSocket")
-          log.warn(t)
+            self.socket = await websockets.client.connect(self.gateway_url)
+        except websockets.exceptions.InvalidURI as exc:
+            self.logger.warning("%s: %s", exc.__class__.__name__, str(exc))
+            sys.exit(1)
+        except websockets.exceptions.WebSocketProtocolError as exc:
+            self.logger.warning("%s: %s", exc.__class__.__name__, str(exc))
+            sys.exit(1)
+        except websockets.exceptions.ConnectionClosed as exc:
+            self.logger.warning("Connection closed: (code: %s) (reason: %s)", exc.code, exc.reason)
+            sys.exit(1)
 
-  async def login(self, username, password):
-    await self.connect()
-    if len(username) > 32:
-      raise BadLoginCredentials('Usernames must not exceed a length of 32 characters')
-    if len(password) > 32:
-      raise BadLoginCredentials('Passwords must not exceed a length of 32 characters')
-    if username.replace('\n', '').replace(' ', '') == '':
-      raise BadLoginCredentials('Usernames must not be empty or consist of only spaces or newlines')
-    if password.replace('\n', '').replace(' ', '') == '':
-      raise BadLoginCredentials('Passwords must not be empty or consist of only spaces or newlines')
-    self.username = username
-    self.password = password
-    payload = {
-        "type": "auth",
-        "username": username,
-        "password": password
-    }
-    await self.ws.send(json.dumps(payload))
-    asyncio.ensure_future(self._start())
-    while True:
-      await asyncio.sleep(1)
+    def event(self, coro):
+        """Takes coroutine
+           Returns coroutine
 
-  def run(self, username, password):
-    try:
-      self.loop.run_until_complete(self.login(username, password))
-    except KeyboardInterrupt:
-      self.loop.create_task(self.ws.close())
-    finally:
-      sys.exit()
+           Handles event coroutines"""
+        if not asyncio.iscoroutinefunction(coro):
+            raise BadEventListener("Passed object must be awaitable")
+        func_name = coro.__name__
+        if not func_name.startswith("on_"):
+            raise BadEventListener(
+                "Event listeners should start with `on_` and then the payload type")
 
-  async def typing(self):
-    payload = {
-      "type": "typing"
-    }
-    await self.ws.send(json.dumps(payload))
+        self.funcs[func_name] = coro
+        return coro
 
-  async def send(self, content):
-    payload = {
-        "type": "message",
-        "message": content
-    }
-    await self.ws.send(json.dumps(payload))
+    async def get_latest_message(self):
+        """Takes nothing
+           Returns packet
 
-  async def send_dm(self, content, recipient):
-    payload = {
-        "type": "direct_message",
-        "message": content,
-        "recipient": recipient
-    }
-    await self.ws.send(json.dumps(payload))
+           Responsible for receiving new packets from connected
+           socket"""
+        msg = await self.socket.recv()
+        return msg
 
-  async def wait_for_message(self):
-    while True:
-      t = await self.get_latest_message()
-      if json.loads(t).get("type") == "message":
-        if json.loads(t).get("author") != self.username:
-          if self.funcs.get("on_message"):
-            await self.funcs.get("on_message")(Message(json.loads(t)))
-            self.messages.append(Message(json.loads(t)))
-          return Message(json.loads(t))
+    async def _start(self):
+        """Takes nothing
+           Returns None
 
-  async def process_data(self, data):
-    if data.get("type") == "auth":
-      if data.get("success") == False:
-        raise BadLoginCredentials("The login credentials entered were invalid")
-      else:
-        if self.funcs.get("on_ready") is not None:
-          await self.funcs.get("on_ready")()
+           Main packet gathering loop. Responsible for gathering
+           packet and logging issues when loading the packet
+           stream via JSON"""
+        while True:
+            latest_message = await self.get_latest_message()
+            if latest_message is not None:
+                try:
+                    data = json.loads(latest_message)
+                    await self.process_data(data)
+                except BadLoginCredentials:
+                    pass
+                except json.decoder.JSONDecodeError as exc:
+                    self.logger.warning("=========== [ Client / warninging ] ===========")
+                    self.logger.warning("Non-JSON-serializable Object recieved from WeebSocket")
+                    self.logger.warning("%s %s", type(exc).__name__, str(exc))
+                    self.logger.warning(latest_message)
+                    self.logger.warning("============================================")
 
-      if data.get("type") == "broadcast":
-        if self.funcs.get("on_broadcast"):
-          await self.funcs.get("on_broadcast")(data.get("message"))
+    async def login(self, username, password):
+        """Takes username and password
+           Returns None
 
-    if data.get("type") == "message":
-      if self.funcs.get("on_message"):
-        await self.funcs.get("on_message")(Message(data))
-        self.messages.append(Message(data))
+           Sends a login packet to the currently connected
+           websocket server"""
+        await self.connect()
 
-    if data.get("type") == "direct_message":
-      if self.funcs.get("on_direct_message"):
-        await self.funcs.get("on_direct_message")(Message(data))
-        self.messages.append(Message(data))
+        if len(username) > 32 or len(password) > 32:
+            raise BadLoginCredentials(
+                "Usernames/passwords must not exceed a length of 32 characters")
 
-    if data.get("type") == "join":
-      if self.funcs.get("on_join"):
-        self.user_list.append(data.get("username"))
-        await self.funcs.get("on_join")(data.get("username"))
+        username, password = username.replace("\n", ""), password.replace("\n", "")
+        if "" in [username, password]:
+            raise BadLoginCredentials(
+                "Usernames/passwords must not be empty or consist of only spaces or newlines")
 
-    if data.get("type") == "quit":
-      if self.funcs.get("on_quit"):
-        self.user_list.remove(data.get("username"))
-        await self.funcs.get("on_quit")(data.get("username"))
+        self.username = username
+        self.password = password
+        payload = {
+            "type": "auth",
+            "username": username,
+            "password": password
+        }
+        await self.socket.send(json.dumps(payload))
+        asyncio.ensure_future(self._start())
+        while True:
+            await asyncio.sleep(1)
 
-    if data.get("type") == "user_list":
-      if self.funcs.get("on_user_list"):
-        self.user_list = data.get("users")
-        await self.funcs.get("on_user_list")(data.get("users"))
+    def run(self, username, password):
+        """Takes username and password
+           Returns None
 
-    if data.get("type") == "typing":
-      if self.funcs.get("on_typing"):
-        await self.funcs.get("on_typing")(data.get("username"))
+           Starts the event loops, logging into the server"""
+        try:
+            self.loop.run_until_complete(self.login(username, password))
+        except KeyboardInterrupt:
+            self.loop.create_task(self.socket.close())
+        finally:
+            sys.exit(0)
 
-    if self.funcs.get("on_raw_socket_recieve") is not None:
-      await self.funcs.get("on_raw_socket_recieve")(data)
+    async def typing(self):
+        """Takes nothing
+           Returns None
+
+           Handles packets with type 'typing'
+           """
+        payload = {
+            "type": "typing"
+        }
+        await self.socket.send(json.dumps(payload))
+
+    async def send(self, content):
+        """Takes content
+           Returns None
+
+           Sends a packet via socket to post a public message
+           in connected websocket server"""
+        payload = {
+            "type": "message",
+            "message": content
+        }
+        await self.socket.send(json.dumps(payload))
+
+    async def send_dm(self, content, recipient):
+        """Takes message content and intended deliveree
+           Returns None
+
+           Sends a packet via socket to directly message a user"""
+        payload = {
+            "type": "direct_message",
+            "message": content,
+            "recipient": recipient
+        }
+        await self.socket.send(json.dumps(payload))
+
+    async def wait_for_message(self):
+        """Takes None
+           Returns Message
+
+           Message loop. Gets messages from websocket and returns
+           a Message object"""
+        while True:
+            latest_message = await self.get_latest_message()
+            data = json.loads(latest_message)
+            if data.get("type") == "message" and data.get("author") != self.username:
+                if self.funcs.get("on_message"):
+                    await self.funcs.get("on_message")(Message(json.loads(latest_message)))
+                    self.messages.append(Message(json.loads(latest_message)))
+                    return Message(json.loads(latest_message))
+
+    async def process_data(self, data):
+        """Takes data: JSON
+           Returns None
+
+           Handles packets of each type specified in the
+           RWCI standard"""
+        data_type = data.get("type")
+        if data_type == "auth":
+            if data.get("success") and self.funcs.get("on_ready") is not None:
+                await self.funcs.get("on_ready")()
+            else:
+                raise BadLoginCredentials("The login credentials entered were invalid")
+
+            if data_type == "broadcast" and self.funcs.get("on_broadcast"):
+                await self.funcs.get("on_broadcast")(data.get("message"))
+
+        if data_type == "message" and self.funcs.get("on_message"):
+            await self.funcs.get("on_message")(Message(data))
+            self.messages.append(Message(data))
+
+        if data_type == "direct_message" and self.funcs.get("on_direct_message"):
+            await self.funcs.get("on_direct_message")(Message(data))
+            self.messages.append(Message(data))
+
+        if data_type == "join" and self.funcs.get("on_join"):
+            self.user_list.append(data.get("username"))
+            await self.funcs.get("on_join")(data.get("username"))
+
+        if data_type == "quit" and self.funcs.get("on_quit"):
+            self.user_list.remove(data.get("username"))
+            await self.funcs.get("on_quit")(data.get("username"))
+
+        if data_type == "user_list" and self.funcs.get("on_user_list"):
+            self.user_list = data.get("users")
+            await self.funcs.get("on_user_list")(data.get("users"))
+
+        if data_type == "typing" and self.funcs.get("on_typing"):
+            await self.funcs.get("on_typing")(data.get("username"))
+
+        if self.funcs.get("on_raw_socket_recieve") is not None:
+            await self.funcs.get("on_raw_socket_recieve")(data)
