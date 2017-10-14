@@ -30,7 +30,7 @@ class Client:
       self.ws = await websockets.client.connect(self.gateway_url)
     except Exception as e:
       log.warn(e.__class__.__name__ + ": " + str(e))
-      sys.exit()
+      sys.exit(1)
 
   def event(self, coro):
     if not asyncio.iscoroutinefunction(coro):
