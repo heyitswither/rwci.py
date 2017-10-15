@@ -28,7 +28,7 @@ class Client:
         self.username = None
         self.password = None
         self.gateway_url = gateway_url
-        self.socket = None
+        self.ws = None
         self.funcs = {}
         self.user_list = []
         self.messages = []
@@ -41,7 +41,7 @@ class Client:
 
            Connects to the websocket server specified on instantiation"""
         try:
-            self.socket = await websockets.client.connect(self.gateway_url)
+            self.ws = await websockets.client.connect(self.gateway_url)
         except websockets.exceptions.InvalidURI as exc:
             self.logger.warning("%s: %s", exc.__class__.__name__, str(exc))
             sys.exit(1)
@@ -73,7 +73,7 @@ class Client:
 
            Responsible for receiving new packets from connected
            socket"""
-        msg = await self.socket.recv()
+        msg = await self.ws.recv()
         return msg
 
     async def _start(self):
@@ -122,7 +122,7 @@ class Client:
             "username": username,
             "password": password
         }
-        await self.socket.send(json.dumps(payload))
+        await self.ws.send(json.dumps(payload))
         asyncio.ensure_future(self._start())
         while True:
             await asyncio.sleep(1)
@@ -135,7 +135,7 @@ class Client:
         try:
             self.loop.run_until_complete(self.login(username, password))
         except KeyboardInterrupt:
-            self.loop.create_task(self.socket.close())
+            self.loop.create_task(self.ws.close())
         finally:
             sys.exit(0)
 
@@ -148,7 +148,7 @@ class Client:
         payload = {
             "type": "typing"
         }
-        await self.socket.send(json.dumps(payload))
+        await self.ws.send(json.dumps(payload))
 
     async def send(self, content, channel="general"):
         """Takes content
@@ -161,7 +161,7 @@ class Client:
             "message": content,
             "channel": channel
         }
-        await self.socket.send(json.dumps(payload))
+        await self.ws.send(json.dumps(payload))
 
     async def send_dm(self, content, recipient):
         """Takes message content and intended deliveree
@@ -173,7 +173,7 @@ class Client:
             "message": content,
             "recipient": recipient
         }
-        await self.socket.send(json.dumps(payload))
+        await self.ws.send(json.dumps(payload))
 
     async def wait_for_message(self):
         """Takes None
