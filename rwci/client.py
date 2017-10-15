@@ -30,7 +30,10 @@ class Client:
         self.gateway_url = gateway_url
         self.ws = None
         self.funcs = {}
+        self.state = None
         self.user_list = []
+        self.channels = []
+        self.default_channel = None
         self.messages = []
         self.loop = asyncio.get_event_loop()
         self.logger = logging.getLogger("rwci")
@@ -150,12 +153,14 @@ class Client:
         }
         await self.ws.send(json.dumps(payload))
 
-    async def send(self, content, channel="general"):
+    async def send(self, content, channel=None):
         """Takes content
            Returns None
 
            Sends a packet via socket to post a public message
            in connected websocket server"""
+        if not channel:
+            channel = self.default_channel
         payload = {
             "type": "message",
             "message": content,
@@ -198,13 +203,11 @@ class Client:
            RWCI standard"""
         data_type = data.get("type")
         if data_type == "auth":
-            if data.get("success") and self.funcs.get("on_ready"):
-                await self.funcs.get("on_ready")()
             if not data.get("success"):
                 raise BadLoginCredentials("The login credentials entered were invalid")
 
-            if data_type == "broadcast" and self.funcs.get("on_broadcast"):
-                await self.funcs.get("on_broadcast")(data.get("message"))
+        if data_type == "broadcast" and self.funcs.get("on_broadcast"):
+            await self.funcs.get("on_broadcast")(data.get("message"))
 
         if data_type == "message":
             self.messages.append(Message(data))
@@ -218,6 +221,8 @@ class Client:
 
         if data_type == "join":
             self.user_list.append(data.get("username"))
+            if data.get("username") == self.username and self.funcs.get("on_ready"):
+                await self.funcs.get("on_ready")()
             if self.funcs.get("on_join"):
                 await self.funcs.get("on_join")(data.get("username"))
 
@@ -233,6 +238,26 @@ class Client:
 
         if data_type == "typing" and self.funcs.get("on_typing"):
             await self.funcs.get("on_typing")(data.get("username"))
+
+        if data_type == "channel_list":
+            self.channels = data.get("channels")
+            if self.funcs.get("on_channel_list"):
+                await self.funcs.get("on_channel_list")(data.get("channels"))
+
+        if data_type == "default_channel":
+            self.default_channel = data.get("channel")
+            if self.funcs.get("on_default_channel"):
+                await self.funcs.get("on_default_channel")(data.get("channel"))
+
+        if data_type == "channel_create":
+            self.channels.append(data.get("channel"))
+            if self.funcs.get("on_channel_create"):
+                await self.funcs.get("on_channel_create")(data.get("channel"))
+
+        if data_type == "channel_delete":
+            self.channels.remove(data.get("channel"))
+            if self.funcs.get("on_channel_delete"):
+                await self.funcs.get("on_channel_delete")(data.get("channel"))
 
         if self.funcs.get("on_raw_socket_recieve"):
             await self.funcs.get("on_raw_socket_recieve")(data)
