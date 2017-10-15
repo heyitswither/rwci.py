@@ -223,7 +223,7 @@ class Client:
 
         if data_type == "quit":
             self.user_list.remove(data.get("username"))
-            if self.funs.get("on_quit"):
+            if self.funcs.get("on_quit"):
                 await self.funcs.get("on_quit")(data.get("username"))
 
         if data_type == "user_list":
