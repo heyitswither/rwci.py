@@ -198,36 +198,41 @@ class Client:
            RWCI standard"""
         data_type = data.get("type")
         if data_type == "auth":
-            if data.get("success") and self.funcs.get("on_ready") is not None:
+            if data.get("success") and self.funcs.get("on_ready"):
                 await self.funcs.get("on_ready")()
-            else:
+            if not data.get("success"):
                 raise BadLoginCredentials("The login credentials entered were invalid")
 
             if data_type == "broadcast" and self.funcs.get("on_broadcast"):
                 await self.funcs.get("on_broadcast")(data.get("message"))
 
-        if data_type == "message" and self.funcs.get("on_message"):
-            await self.funcs.get("on_message")(Message(data))
+        if data_type == "message":
             self.messages.append(Message(data))
+            if self.funcs.get("on_message"):
+                await self.funcs.get("on_message")(Message(data))
 
-        if data_type == "direct_message" and self.funcs.get("on_direct_message"):
-            await self.funcs.get("on_direct_message")(Message(data))
+        if data_type == "direct_message":
             self.messages.append(Message(data))
+            if self.funcs.get("on_direct_message"):
+                await self.funcs.get("on_direct_message")(Message(data))
 
-        if data_type == "join" and self.funcs.get("on_join"):
+        if data_type == "join":
             self.user_list.append(data.get("username"))
-            await self.funcs.get("on_join")(data.get("username"))
+            if self.funcs.get("on_join"):
+                await self.funcs.get("on_join")(data.get("username"))
 
-        if data_type == "quit" and self.funcs.get("on_quit"):
+        if data_type == "quit":
             self.user_list.remove(data.get("username"))
-            await self.funcs.get("on_quit")(data.get("username"))
+            if self.funs.get("on_quit"):
+                await self.funcs.get("on_quit")(data.get("username"))
 
-        if data_type == "user_list" and self.funcs.get("on_user_list"):
+        if data_type == "user_list":
             self.user_list = data.get("users")
-            await self.funcs.get("on_user_list")(data.get("users"))
+            if self.funcs.get("on_user_list"):
+                await self.funcs.get("on_user_list")(data.get("users"))
 
         if data_type == "typing" and self.funcs.get("on_typing"):
             await self.funcs.get("on_typing")(data.get("username"))
 
-        if self.funcs.get("on_raw_socket_recieve") is not None:
+        if self.funcs.get("on_raw_socket_recieve"):
             await self.funcs.get("on_raw_socket_recieve")(data)
