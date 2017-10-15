@@ -5,8 +5,8 @@ import datetime
 
 class Message:
   def __init__(self, data):
-    self.content = data['message']
-    self.type = data['type']
-    self.author = data['author']
-    self.channel = data['channel']
+    self.content = data.get('message')
+    self.type = data.get('type')
+    self.author = data.get('author')
+    self.channel = data.get('channel')
     self.timestamp = datetime.datetime.now()
