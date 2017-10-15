@@ -8,4 +8,5 @@ class Message:
     self.content = data['message']
     self.type = data['type']
     self.author = data['author']
-    self.timestamp = datetime.datetime.now().timestamp()
+    self.channel = data['channel']
+    self.timestamp = datetime.datetime.now()

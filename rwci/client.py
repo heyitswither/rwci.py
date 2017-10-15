@@ -150,7 +150,7 @@ class Client:
         }
         await self.socket.send(json.dumps(payload))
 
-    async def send(self, content):
+    async def send(self, content, channel="general"):
         """Takes content
            Returns None
 
@@ -158,7 +158,8 @@ class Client:
            in connected websocket server"""
         payload = {
             "type": "message",
-            "message": content
+            "message": content,
+            "channel": channel
         }
         await self.socket.send(json.dumps(payload))
 
