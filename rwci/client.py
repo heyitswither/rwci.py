@@ -38,7 +38,7 @@ class Client:
         self.loop = asyncio.get_event_loop()
         self.logger = logging.getLogger("rwci")
 
-    @preoperty
+    @property
     def user_list(self):
         print("Hello there 'Client.user_list' is being deprecated, please use 'Client.users' instead.")
         return self.users
