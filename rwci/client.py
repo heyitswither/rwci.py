@@ -31,12 +31,17 @@ class Client:
         self.ws = None
         self.funcs = {}
         self.state = None
-        self.user_list = []
-        self.channels = []
+        self.users = set()
+        self.channels = set()
         self.default_channel = None
         self.messages = []
         self.loop = asyncio.get_event_loop()
         self.logger = logging.getLogger("rwci")
+
+    @preoperty
+    def user_list(self):
+        print("Hello there 'Client.user_list' is being deprecated, please use 'Client.users' instead.")
+        return self.users
 
     async def connect(self):
         """Takes nothing
@@ -220,19 +225,19 @@ class Client:
                 await self.funcs.get("on_direct_message")(Message(data))
 
         if data_type == "join":
-            self.user_list.append(data.get("username"))
+            self.users.add(data.get("username"))
             if data.get("username") == self.username and self.funcs.get("on_ready"):
                 await self.funcs.get("on_ready")()
             if self.funcs.get("on_join"):
                 await self.funcs.get("on_join")(data.get("username"))
 
         if data_type == "quit":
-            self.user_list.remove(data.get("username"))
+            self.users.remove(data.get("username"))
             if self.funcs.get("on_quit"):
                 await self.funcs.get("on_quit")(data.get("username"))
 
         if data_type == "user_list":
-            self.user_list = data.get("users")
+            self.users = set(data.get("users"))
             if self.funcs.get("on_user_list"):
                 await self.funcs.get("on_user_list")(data.get("users"))
 
@@ -240,7 +245,7 @@ class Client:
             await self.funcs.get("on_typing")(data.get("username"))
 
         if data_type == "channel_list":
-            self.channels = data.get("channels")
+            self.channels = set(data.get("channels"))
             if self.funcs.get("on_channel_list"):
                 await self.funcs.get("on_channel_list")(data.get("channels"))
 
@@ -250,7 +255,7 @@ class Client:
                 await self.funcs.get("on_default_channel")(data.get("channel"))
 
         if data_type == "channel_create":
-            self.channels.append(data.get("channel"))
+            self.channels.add(data.get("channel"))
             if self.funcs.get("on_channel_create"):
                 await self.funcs.get("on_channel_create")(data.get("channel"))
 
